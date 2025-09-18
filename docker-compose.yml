@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  fastwhisperapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastwhisperapi
+    restart: unless-stopped
+    ports:
+      - "8064:8064"
+    environment:
+      - FORCE_CPU=true
+
+  n8n:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n
+    image: n8n-ffmpeg
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_SECURE_COOKIE=false
+      - TZ=America/Sao_Paulo
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    container_name: kokoro
+    restart: unless-stopped
+    ports:
+      - "8880:8880"
+
+networks:
+  default:
+    name: ai_kit

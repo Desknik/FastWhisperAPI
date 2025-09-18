@@ -10,4 +10,4 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 
 EXPOSE 8000
 
-CMD ["fastapi", "run", "main.py"]
+CMD ["fastapi", "run", "main.py", "--port", "8064"]
