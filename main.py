@@ -8,7 +8,7 @@ from faster_whisper import WhisperModel
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Form, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
+from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 
@@ -65,7 +65,7 @@ def home():
                     <li>initial_prompt: This optional parameter provides an initial prompt to guide the model's transcription process. It can be used to pass a dictionary of the correct spellings of words and to provide context for better understanding speech, thus maintaining a consistent writing style.</li>
                     <li>vad_filter: Whether to apply a voice activity detection filter. This is an optional parameter. Default is False.</li>
                     <li>min_silence_duration_ms: The minimum duration of silence to be considered as a pause. This is an optional parameter. Default is 1000.</li>
-                    <li>response_format: The format of the response. This is an optional parameter. The options are 'text', 'verbose_json'. Default is 'text'.</li>
+                    <li>response_format: The format of the response. This is an optional parameter. The options are 'text', 'verbose_json', 'ass'. Default is 'text'. Quando 'ass' é selecionado, a API retorna um arquivo de legenda .ass com fonte Arial branca, borda preta e background escuro com opacidade.</li>
                     <li>timestamp_granularities: The granularity of the timestamps. This is an optional parameter. The options are 'segment', 'word'. Default is 'segment'. This is a string and not an array like the OpenAI model, and the timestamps will be returned only if the response_format is set to verbose_json.</li>
                 </ul>
                 <h4>Example:</h4>
@@ -128,7 +128,7 @@ async def transcribe_audio(credentials: HTTPAuthorizationCredentials = Depends(s
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
         futures = []
         for f in file:
-            future = executor.submit(asyncio.run, process_file(f, m, initial_prompt, language, word_timestamps, vad_filter, min_silence_duration_ms))
+            future = executor.submit(asyncio.run, process_file(f, m, initial_prompt, language, word_timestamps, vad_filter, min_silence_duration_ms, response_format))
             futures.append(future)
     
         transcriptions = {}
@@ -143,6 +143,14 @@ async def transcribe_audio(credentials: HTTPAuthorizationCredentials = Depends(s
                 else:
                     if response_format == "text":
                         transcriptions = {"text": result["text"]}
+                    elif response_format == "ass":
+                        # Retorna o arquivo .ass diretamente
+                        filename = file[0].filename.rsplit(".", 1)[0] + ".ass"
+                        return Response(
+                            content=result["ass_content"],
+                            media_type="text/plain",
+                            headers={"Content-Disposition": f"attachment; filename={filename}"}
+                        )
                     else:
                         transcriptions = result
             except Exception as e:

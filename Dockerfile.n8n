@@ -1,4 +1,19 @@
 FROM docker.n8n.io/n8nio/n8n:latest
+
 USER root
-RUN apk add --no-cache ffmpeg
+
+# Instala ffmpeg e todas as dependências MESA necessárias para VA-API.
+RUN apk add --no-cache ffmpeg fontconfig yt-dlp libva libva-utils mesa-dri-gallium mesa-va-gallium
+
+
+# Deleta o grupo 'video' existente, recria-o com o GID 992 (do host)
+# e então adiciona o usuário 'node'.
+RUN delgroup video && addgroup -g 992 video && adduser node video
+
+# Copia a sua pasta de fontes
+COPY ./Poppins /usr/share/fonts/Poppins
+
+# Reconstrói o cache de fontes
+RUN fc-cache -fv
+
 USER node

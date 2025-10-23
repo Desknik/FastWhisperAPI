@@ -1,8 +1,11 @@
 import os
 import tempfile
+import io
 from fastapi import Depends, HTTPException, status, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.responses import StreamingResponse
 from faster_whisper import WhisperModel
+import pysubs2
 from constants import security, SUPPORTED_EXTENSIONS, SUPPORTED_LANGUAGES, SUPPORTED_MODELS, SUPPORTED_RESPONSE_FORMATS, SUPPORTED_TIMESTAMP_GRANULARITIES
 from logging_config import get_logger
 
@@ -56,18 +59,60 @@ def create_segment_data(segments: list, word_timestamps: bool):
             segment_dict["words"] = words_data
         segment_data.append(segment_dict)
     return segment_data
-async def process_file(file: UploadFile, model: WhisperModel, initial_prompt: str, language: str, word_timestamps: bool, vad_filter: bool,  min_silence_duration_ms: int):
+def create_ass_subtitle(segment_data, filename):
+    subs = pysubs2.SSAFile()
+    subs.info["Title"] = f"Transcription of {filename}"
+    subs.info["ScriptType"] = "v4.00+"
+    subs.info["WrapStyle"] = "0"
+    subs.info["ScaledBorderAndShadow"] = "yes"
+    subs.info["YCbCr Matrix"] = "None"
+    
+    # Definindo o estilo personalizado
+    style = pysubs2.SSAStyle()
+    style.fontname = "Arial"
+    style.fontsize = 20
+    style.primarycolor = pysubs2.Color(255, 255, 255)  # Branco
+    style.outlinecolor = pysubs2.Color(0, 0, 0)        # Borda preta
+    style.backcolor = pysubs2.Color(0, 0, 0, 128)      # Background preto com opacidade
+    style.bold = True
+    style.borderstyle = 3                              # Estilo de borda arredondada
+    style.outline = 2                                  # Espessura da borda
+    style.shadow = 1                                   # Sombra
+    style.alignment = 2                                # Alinhamento centralizado na parte inferior
+    
+    subs.styles["Default"] = style
+    
+    for segment in segment_data:
+        start_time = int(segment["start"] * 1000)
+        end_time = int(segment["end"] * 1000)
+        text = segment["text"]
+        
+        event = pysubs2.SSAEvent(start=start_time, end=end_time, text=text, style="Default")
+        subs.events.append(event)
+    
+    # Retorna o conteúdo do arquivo .ass como string
+    output = io.StringIO()
+    subs.write(output)
+    return output.getvalue()
+
+async def process_file(file: UploadFile, model: WhisperModel, initial_prompt: str, language: str, word_timestamps: bool, vad_filter: bool, min_silence_duration_ms: int, response_format: str = "text"):
     extension = get_file_extension(file.filename)
     segments, info = await transcribe_temp_file(file, extension, model, initial_prompt, language, word_timestamps, vad_filter, min_silence_duration_ms)
     segment_data = create_segment_data(segments, word_timestamps)
     full_text = " ".join([segment["text"] for segment in segment_data]).strip()
-    return {
+    
+    result = {
         "filename": file.filename,
         "detected_language": info.language,
         "language_probability": info.language_probability,
         "text": full_text,
         "segments": segment_data
     }
+    
+    if response_format == "ass":
+        result["ass_content"] = create_ass_subtitle(segment_data, file.filename)
+    
+    return result
 
 def validate_parameters(files, language, model_size, vad_filter, min_silence_duration_ms, response_format, timestamp_granularities):
     for file in files:

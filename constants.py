@@ -25,6 +25,6 @@ SUPPORTED_MODELS = ("tiny.en", "tiny", "base.en", "base", "small.en", "small", "
 
 SUPPORTED_EXTENSIONS = ("mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm", "opus", "flac", "ogg")
 
-SUPPORTED_RESPONSE_FORMATS = ("text", "verbose_json")
+SUPPORTED_RESPONSE_FORMATS = ("text", "verbose_json", "ass")
 
 SUPPORTED_TIMESTAMP_GRANULARITIES = ("segment", "word")

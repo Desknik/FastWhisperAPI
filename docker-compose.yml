@@ -28,8 +28,14 @@ services:
       - N8N_SECURE_COOKIE=false
       - WEBHOOK_URL=https://n8n.fragments.com.br/
       - TZ=America/Sao_Paulo
+      - LIBVA_DRIVER_NAME=radeonsi 
     volumes:
-      - ./n8n_data:/home/node/.n8n
+      - n8n_data:/home/node/.n8n
+    devices:
+      - "/dev/dri:/dev/dri"
+    privileged: true
+    security_opt:
+      - seccomp=unconfined
 
   kokoro:
     image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
@@ -41,3 +47,6 @@ services:
 networks:
   default:
     name: ai_kit
+
+volumes:
+  n8n_data: {}
